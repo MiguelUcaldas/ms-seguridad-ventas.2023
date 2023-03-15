@@ -47,9 +47,9 @@ export class Usuario extends Entity {
 
   @property({
     type: 'string',
-    required: true,
+    // se generara automaticamente la clave de usuario y por lo tanto no es requerida
   })
-  clave: string;
+  clave?: string;
 
   @hasMany(() => Login)
   logins: Login[];

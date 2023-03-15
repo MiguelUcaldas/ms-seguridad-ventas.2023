@@ -1,3 +1,4 @@
+import {service} from '@loopback/core';
 import {
   Count,
   CountSchema,
@@ -16,15 +17,22 @@ import {
   del,
   requestBody,
   response,
+  HttpErrors,
 } from '@loopback/rest';
-import {Usuario} from '../models';
-import {UsuarioRepository} from '../repositories';
+import {Credenciales, Login, Usuario} from '../models';
+import {LoginRepository, UsuarioRepository} from '../repositories';
+import {SeguridadUsuarioService} from '../services';
 
 export class UsuarioController {
   constructor(
     @repository(UsuarioRepository)
-    public usuarioRepository : UsuarioRepository,
-  ) {}
+    public usuarioRepository: UsuarioRepository,
+    @service(SeguridadUsuarioService)
+    public servicioSeguridad: SeguridadUsuarioService,
+    @repository(LoginRepository)
+    public repositoriLogin: LoginRepository
+
+  ) { }
 
   @post('/usuario')
   @response(200, {
@@ -44,6 +52,26 @@ export class UsuarioController {
     })
     usuario: Omit<Usuario, '_id'>,
   ): Promise<Usuario> {
+
+    // crear clave
+
+    let clave = this.servicioSeguridad.crearTextoAleatorio(10);
+
+    console.log(clave);
+
+
+    //cifrar clave
+
+    let claveCifrada = this.servicioSeguridad.cifrarTexto(clave);
+
+    //asignar clave cifrada al usuario
+
+    usuario.clave = claveCifrada;
+
+    //enviar correo electronico de notificacion
+
+    // queda pendiente
+
     return this.usuarioRepository.create(usuario);
   }
 
@@ -147,4 +175,49 @@ export class UsuarioController {
   async deleteById(@param.path.string('id') id: string): Promise<void> {
     await this.usuarioRepository.deleteById(id);
   }
+
+
+  /**
+   * metodos personalizados para la API
+   */
+
+  @post('/identificar-usuario')
+  @response(200, {
+    description: "identificar un usuario por correo y clave",
+    content: {'aplication/json': {schema: getModelSchemaRef(Credenciales)}}
+  })
+  async identificarUsuario(
+    @requestBody(
+      {
+        content: {
+          'aplication/json': {
+            schema: getModelSchemaRef(Credenciales)
+          }
+        }
+      }
+
+    )
+    credenciales: Credenciales
+
+  ): Promise<object> {
+
+    let usuario = await this.servicioSeguridad.identificarUsuario(credenciales);
+    if (usuario) {
+      let codigo2 = this.servicioSeguridad.crearTextoAleatorio(5);
+      let login: Login = new Login();
+      login.usuarioId = usuario._id!;
+      login.codigo2fa = codigo2;
+      login.estadoCodigo2fa = false;
+      login.token = "";
+      login.estadoToken = false;
+      this.repositoriLogin.create(login);
+      //notificar al usuario via correo o sms
+
+      return usuario;
+    }
+
+    return new HttpErrors[401]("Credenciales incorrectas")
+
+  }
+
 }
