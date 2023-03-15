@@ -9,6 +9,7 @@ import {
 
 /**
  * OpenAPI response for ping()
+ * modificacion ejemplo
  */
 const PING_RESPONSE: ResponseObject = {
   description: 'Ping Response',
@@ -38,7 +39,7 @@ const PING_RESPONSE: ResponseObject = {
  * A simple controller to bounce back http requests
  */
 export class PingController {
-  constructor(@inject(RestBindings.Http.REQUEST) private req: Request) {}
+  constructor(@inject(RestBindings.Http.REQUEST) private req: Request) { }
 
   // Map to `GET /ping`
   @get('/ping')
