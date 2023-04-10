@@ -23,6 +23,7 @@ import {
 import {Credenciales, FactorDeAutentificacionPorCodigo, Login, Usuario} from '../models';
 import {LoginRepository, UsuarioRepository} from '../repositories';
 import {SeguridadUsuarioService} from '../services';
+import {ConfiguracionSeguridad} from '../config/seguridad.config';
 
 export class UsuarioController {
   constructor(
@@ -86,7 +87,11 @@ export class UsuarioController {
   ): Promise<Count> {
     return this.usuarioRepository.count(where);
   }
-  @authenticate('auth')
+  @authenticate({
+    strategy: 'auth',
+    options: [ConfiguracionSeguridad.menuUsuarioId, ConfiguracionSeguridad.listarAccion]
+
+  })
   @get('/usuario')
   @response(200, {
     description: 'Array of Usuario model instances',
