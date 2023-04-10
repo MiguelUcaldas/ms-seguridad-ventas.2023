@@ -1,3 +1,4 @@
+import {authenticate} from '@loopback/authentication';
 import {service} from '@loopback/core';
 import {
   Count,
@@ -8,18 +9,18 @@ import {
   Where,
 } from '@loopback/repository';
 import {
-  post,
-  param,
+  del,
   get,
   getModelSchemaRef,
+  HttpErrors,
+  param,
   patch,
+  post,
   put,
-  del,
   requestBody,
   response,
-  HttpErrors,
 } from '@loopback/rest';
-import {Credenciales, Login, Usuario} from '../models';
+import {Credenciales, FactorDeAutentificacionPorCodigo, Login, Usuario} from '../models';
 import {LoginRepository, UsuarioRepository} from '../repositories';
 import {SeguridadUsuarioService} from '../services';
 
@@ -85,7 +86,7 @@ export class UsuarioController {
   ): Promise<Count> {
     return this.usuarioRepository.count(where);
   }
-
+  @authenticate('auth')
   @get('/usuario')
   @response(200, {
     description: 'Array of Usuario model instances',
@@ -184,7 +185,7 @@ export class UsuarioController {
   @post('/identificar-usuario')
   @response(200, {
     description: "identificar un usuario por correo y clave",
-    content: {'aplication/json': {schema: getModelSchemaRef(Credenciales)}}
+    content: {'aplication/json': {schema: getModelSchemaRef(Usuario)}}
   })
   async identificarUsuario(
     @requestBody(
@@ -212,12 +213,62 @@ export class UsuarioController {
       login.estadoToken = false;
       this.repositoriLogin.create(login);
       //notificar al usuario via correo o sms
-
+      usuario.clave = "";
       return usuario;
     }
 
     return new HttpErrors[401]("Credenciales incorrectas")
 
   }
+
+  // segunda funcion
+
+  @post('/verificar-2fa')
+  @response(200, {
+    description: "validar un codigo de segundo valor de autentificacion",
+    content: {'aplication/json': {schema: getModelSchemaRef(FactorDeAutentificacionPorCodigo)}}
+  })
+  async verificarCodigo2fa(
+    @requestBody(
+      {
+        content: {
+          'aplication/json': {
+            schema: getModelSchemaRef(FactorDeAutentificacionPorCodigo)
+          }
+        }
+      }
+
+    )
+    credenciales: FactorDeAutentificacionPorCodigo
+
+  ): Promise<object> {
+
+    let usuario = await this.servicioSeguridad.valirdarCodigo2fa(credenciales);
+    if (usuario) {
+      let token = this.servicioSeguridad.crearToken(usuario);
+      if (usuario) {
+        usuario.clave = "";
+        try {
+          let login = await this.repositoriLogin.findOne({
+            where: {
+              usuarioId: usuario._id,
+              estadoCodigo2fa: false
+            }
+          });
+          login!.estadoCodigo2fa = true;
+          this.repositoriLogin.updateById(login?._id, login!);
+        } catch {
+          console.log("No se ha almacenado el cambio del estado del token en la base de datos")
+        }
+        return {
+          user: usuario,
+          token: token
+        };
+      }
+    }
+    return new HttpErrors[401]("Codigo 2fa invalido para el usuario definido");
+
+  }
+
 
 }

@@ -9,7 +9,7 @@ import {
 
 /**
  * OpenAPI response for ping()
- * modificacion ejemplo
+ *
  */
 const PING_RESPONSE: ResponseObject = {
   description: 'Ping Response',
